@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { taskService } from '../services/api';
+import React, { useState, useEffect, useCallback } from 'react';
 import AddTaskModal from './AddTaskModal';
 import './TasksTable.css';
 
@@ -15,11 +14,7 @@ function TasksTable({ tasks, onUpdateTask, onDeleteTask, onAddTask, stats, proje
   const effectivePriorityFilter = externalPriorityFilter !== undefined ? externalPriorityFilter : priorityFilter;
   const effectiveStatusFilter = externalStatusFilter !== undefined ? externalStatusFilter : null;
 
-  useEffect(() => {
-    filterTasks();
-  }, [tasks, effectiveSearchTerm, effectivePriorityFilter, effectiveStatusFilter]);
-
-  const filterTasks = () => {
+  const filterTasks = useCallback(() => {
     let filtered = tasks || [];
 
     if (effectiveSearchTerm) {
@@ -38,7 +33,11 @@ function TasksTable({ tasks, onUpdateTask, onDeleteTask, onAddTask, stats, proje
     }
 
     setFilteredTasks(filtered);
-  };
+  }, [tasks, effectiveSearchTerm, effectivePriorityFilter, effectiveStatusFilter]);
+
+  useEffect(() => {
+    filterTasks();
+  }, [filterTasks]);
 
   const toggleRow = (taskId) => {
     const newExpanded = new Set(expandedRows);

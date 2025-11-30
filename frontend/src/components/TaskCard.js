@@ -2,13 +2,6 @@ import React, { useState } from 'react';
 import './TaskCard.css';
 
 function TaskCard({ task, onUpdateTask, onDeleteTask, onDragStart, onDragEnd, isDragging, projectColorMap }) {
-  const [isChecked, setIsChecked] = useState(task.status === 'Completed');
-
-  const handleCheckboxChange = () => {
-    const newStatus = isChecked ? 'To Do' : 'Completed';
-    setIsChecked(!isChecked);
-    onUpdateTask(task.id, { status: newStatus });
-  };
 
   const getPriorityColor = (priority) => {
     switch (priority) {
