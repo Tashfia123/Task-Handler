@@ -4,7 +4,8 @@
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
-const taskRoutes = require('../backend/routes/tasks');
+const path = require('path');
+const taskRoutes = require(path.join(__dirname, '../backend/routes/tasks'));
 
 const app = express();
 
@@ -69,6 +70,7 @@ pool.on('error', (err) => {
 app.locals.pool = pool;
 
 // Routes
+// Note: Vercel routes /api/* to this function, so paths should include /api
 app.use('/api/tasks', taskRoutes);
 
 // Health check
@@ -76,7 +78,7 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'Server is running', timestamp: new Date().toISOString() });
 });
 
-// Root endpoint
+// Root API endpoint
 app.get('/api', (req, res) => {
   res.json({ 
     status: 'OK', 
@@ -178,6 +180,7 @@ app.use(async (req, res, next) => {
   next();
 });
 
-// Export for Vercel serverless
+// Export for Vercel serverless functions
+// Vercel's @vercel/node can handle Express apps directly
 module.exports = app;
 
