@@ -1,15 +1,13 @@
+// Vercel serverless function entry point
+// This wraps the Express app for Vercel's serverless environment
+
 const express = require('express');
 const cors = require('cors');
-const dotenv = require('dotenv');
 const { Pool } = require('pg');
-const taskRoutes = require('./routes/tasks');
-
-dotenv.config();
+const taskRoutes = require('../backend/routes/tasks');
 
 const app = express();
-const PORT = process.env.PORT || 5000;
 
-// Middleware
 // Configure CORS to allow requests from Vercel frontend
 const corsOptions = {
   origin: function (origin, callback) {
@@ -51,7 +49,11 @@ const pool = new Pool({
   connectionString: connectionString,
   ssl: process.env.NODE_ENV === 'production' || isNeon
     ? { rejectUnauthorized: false } 
-    : false
+    : false,
+  // Connection pool settings for serverless
+  max: 1, // Limit connections in serverless environment
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000,
 });
 
 // Test database connection
@@ -61,7 +63,6 @@ pool.on('connect', () => {
 
 pool.on('error', (err) => {
   console.error('Unexpected error on idle client', err);
-  process.exit(-1);
 });
 
 // Make pool available to routes
@@ -76,7 +77,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // Root endpoint
-app.get('/', (req, res) => {
+app.get('/api', (req, res) => {
   res.json({ 
     status: 'OK', 
     message: 'Task Management API is running',
@@ -88,33 +89,11 @@ app.get('/', (req, res) => {
   });
 });
 
-// Database health check
-app.get('/api/health/db', async (req, res) => {
-  try {
-    const client = await pool.connect();
-    const result = await client.query('SELECT NOW() as current_time, version() as pg_version');
-    client.release();
-    
-    res.json({ 
-      status: 'OK', 
-      message: 'Database connection successful',
-      database: {
-        time: result.rows[0].current_time,
-        version: result.rows[0].pg_version.split(',')[0]
-      }
-    });
-  } catch (error) {
-    res.status(500).json({ 
-      status: 'ERROR', 
-      message: 'Database connection failed',
-      error: error.message,
-      code: error.code
-    });
-  }
-});
-
-// Initialize database tables
+// Initialize database tables (run once)
+let dbInitialized = false;
 async function initializeDatabase() {
+  if (dbInitialized) return;
+  
   try {
     const client = await pool.connect();
     
@@ -134,7 +113,7 @@ async function initializeDatabase() {
       )
     `);
     
-    // Add tags column if it doesn't exist (for existing databases created before tags was added)
+    // Add tags column if it doesn't exist
     try {
       const columnCheck = await client.query(`
         SELECT column_name 
@@ -150,7 +129,6 @@ async function initializeDatabase() {
         console.log('✓ Added tags column to existing table');
       }
     } catch (error) {
-      // Column might already exist or table doesn't exist yet
       if (!error.message.includes('does not exist')) {
         console.log('Note: Tags column check -', error.message);
       }
@@ -174,7 +152,6 @@ async function initializeDatabase() {
         ADD CONSTRAINT tasks_status_check CHECK (status IN ('To Do', 'In Progress', 'Completed'))
       `);
     } catch (constraintError) {
-      // Constraints might already exist, that's okay
       if (!constraintError.message.includes('already exists')) {
         console.log('Note: Updating constraints...');
       }
@@ -187,35 +164,20 @@ async function initializeDatabase() {
     
     console.log('Database tables initialized successfully');
     client.release();
+    dbInitialized = true;
   } catch (error) {
     console.error('Error initializing database:', error);
   }
 }
 
-// Start server
-const server = app.listen(PORT, async () => {
-  console.log(`Server is running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`CORS enabled for: ${process.env.FRONTEND_URL || 'localhost:3000'}`);
-  console.log(`API available at http://localhost:${PORT}/api`);
-  
-  // Initialize database (non-blocking)
-  initializeDatabase().catch(err => {
-    console.error('Database initialization failed:', err.message);
-    console.log('Server is still running, but database operations may fail.');
-    console.log('Please check your DATABASE_URL in .env file and restart the server.');
-  });
+// Initialize database on first request
+app.use(async (req, res, next) => {
+  if (!dbInitialized) {
+    await initializeDatabase();
+  }
+  next();
 });
 
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM signal received: closing HTTP server');
-  server.close(() => {
-    console.log('HTTP server closed');
-    pool.end(() => {
-      console.log('Database pool closed');
-      process.exit(0);
-    });
-  });
-});
+// Export for Vercel serverless
+module.exports = app;
 
