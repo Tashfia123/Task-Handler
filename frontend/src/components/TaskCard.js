@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import './TaskCard.css';
 
 function TaskCard({ task, onUpdateTask, onDeleteTask, onDragStart, onDragEnd, isDragging, projectColorMap }) {
