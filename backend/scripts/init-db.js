@@ -31,6 +31,7 @@ async function initializeDatabase() {
         assigned_to VARCHAR(255),
         due_date DATE,
         tags TEXT,
+        subtasks JSONB DEFAULT '[]'::jsonb,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
@@ -66,6 +67,14 @@ async function initializeDatabase() {
       }
     }
 
+    // Ensure subtasks column exists on existing databases
+    console.log('Ensuring subtasks column exists...');
+    await client.query(`
+      ALTER TABLE tasks
+      ADD COLUMN IF NOT EXISTS subtasks JSONB DEFAULT '[]'::jsonb
+    `);
+    console.log('✓ Subtasks column ready');
+    
     // Create index on status for better query performance
     console.log('Creating index on status...');
     await client.query(`

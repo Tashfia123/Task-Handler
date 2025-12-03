@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import TaskColumn from './TaskColumn';
+import TaskDetailPanel from './TaskDetailPanel';
 import './TaskBoard.css';
 
 const STATUSES = [
@@ -8,8 +9,26 @@ const STATUSES = [
   { id: 'completed', label: 'Completed', statusValue: 'Completed', description: '', color: '#28a745' }
 ];
 
-function TaskBoard({ tasks, onUpdateTask, onDeleteTask, projectColorMap }) {
+function TaskBoard({ tasks, allTasks = [], onUpdateTask, onDeleteTask, projectColorMap }) {
   const [draggedTask, setDraggedTask] = useState(null);
+  const [selectedTaskId, setSelectedTaskId] = useState(null);
+  const [isPanelOpen, setIsPanelOpen] = useState(false);
+
+  const activeTask = useMemo(() => {
+    if (!selectedTaskId) return null;
+    return allTasks.find(task => String(task.id) === String(selectedTaskId)) || null;
+  }, [allTasks, selectedTaskId]);
+
+  const handleSelectTask = (task) => {
+    if (!task) return;
+    setSelectedTaskId(task.id);
+    setIsPanelOpen(true);
+  };
+
+  const handleClosePanel = () => {
+    setIsPanelOpen(false);
+    setSelectedTaskId(null);
+  };
 
   const handleDrop = (e, newStatus) => {
     e.preventDefault();
@@ -71,29 +90,42 @@ function TaskBoard({ tasks, onUpdateTask, onDeleteTask, projectColorMap }) {
   };
 
   return (
-    <div className="task-board">
-      {STATUSES.map(status => {
-        const statusTasks = tasks(status.statusValue);
-        return (
-          <TaskColumn
-            key={status.id}
-            title={status.label}
-            description={status.description}
-            tasks={statusTasks}
-            statusColor={status.color}
-            statusValue={status.statusValue}
-            onUpdateTask={onUpdateTask}
-            onDeleteTask={onDeleteTask}
-            onDragOver={handleDragOver}
-            onDrop={handleDrop}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-            draggedTask={draggedTask}
-            projectColorMap={projectColorMap}
-          />
-        );
-      })}
-    </div>
+    <>
+      <div className="task-board">
+        {STATUSES.map(status => {
+          const statusTasks = tasks(status.statusValue);
+          return (
+            <TaskColumn
+              key={status.id}
+              title={status.label}
+              description={status.description}
+              tasks={statusTasks}
+              statusColor={status.color}
+              statusValue={status.statusValue}
+              onUpdateTask={onUpdateTask}
+              onDeleteTask={onDeleteTask}
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+              draggedTask={draggedTask}
+              projectColorMap={projectColorMap}
+              onSelectTask={handleSelectTask}
+            />
+          );
+        })}
+      </div>
+      <TaskDetailPanel
+        task={activeTask}
+        isOpen={isPanelOpen && Boolean(activeTask)}
+        onClose={handleClosePanel}
+        onUpdateTask={onUpdateTask}
+        onDeleteTask={(taskId) => {
+          onDeleteTask(taskId);
+          handleClosePanel();
+        }}
+      />
+    </>
   );
 }
 

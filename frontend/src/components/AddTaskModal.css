@@ -172,6 +172,116 @@
   background: #333;
 }
 
+/* Subtasks pill style */
+.subtasks-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.subtask-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.subtask-pill-border {
+  width: 4px;
+  height: 40px;
+  border-radius: 999px;
+  background: #00bcd4;
+}
+
+.subtask-pill-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+  background: #f9fafb;
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.03);
+}
+
+.subtask-pill-checkbox {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  accent-color: #3b82f6;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.subtask-pill-input {
+  border: none;
+  background: transparent;
+  flex: 1;
+  font-size: 14px;
+  outline: none;
+  color: #111827;
+}
+
+/* Override generic input styles so checkbox and text sit on one line */
+.form-group .subtask-pill-checkbox {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  margin-right: 4px;
+}
+
+.form-group .subtask-pill-input {
+  width: auto;
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 2px 0 1px;
+  box-shadow: none;
+}
+
+.subtask-pill-remove {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: #9ca3af;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease-in-out;
+}
+
+.subtask-pill-remove:hover {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.add-subtask-btn {
+  align-self: flex-start;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px dashed #d1d5db;
+  background: white;
+  font-size: 13px;
+  font-weight: 500;
+  color: #4b5563;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+.add-subtask-btn:hover {
+  border-color: #3b82f6;
+  color: #1d4ed8;
+  background: #f9fafb;
+}
+
 @media (max-width: 768px) {
   .modal-content {
     padding: 24px;

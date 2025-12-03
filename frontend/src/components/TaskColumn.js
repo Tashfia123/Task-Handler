@@ -15,7 +15,8 @@ function TaskColumn({
   onDragStart,
   onDragEnd,
   draggedTask,
-  projectColorMap
+  projectColorMap,
+  onSelectTask
 }) {
   const [isDragOver, setIsDragOver] = useState(false);
 
@@ -78,6 +79,7 @@ function TaskColumn({
               }}
               isDragging={draggedTask?.id === task.id}
               projectColorMap={projectColorMap}
+              onSelectTask={onSelectTask}
             />
           ))
         )}

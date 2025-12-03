@@ -1,7 +1,16 @@
 import React from 'react';
 import './TaskCard.css';
 
-function TaskCard({ task, onUpdateTask, onDeleteTask, onDragStart, onDragEnd, isDragging, projectColorMap }) {
+function TaskCard({
+  task,
+  onUpdateTask,
+  onDeleteTask,
+  onDragStart,
+  onDragEnd,
+  isDragging,
+  projectColorMap,
+  onSelectTask
+}) {
 
   const getPriorityColor = (priority) => {
     switch (priority) {
@@ -32,7 +41,10 @@ function TaskCard({ task, onUpdateTask, onDeleteTask, onDragStart, onDragEnd, is
 
   const priorityStyle = getPriorityColor(task.priority);
   const tags = task.tags ? (typeof task.tags === 'string' ? task.tags.split(',').map(t => t.trim()) : task.tags) : [];
-  
+  const subtasks = Array.isArray(task.subtasks) ? task.subtasks : [];
+  const totalSubtasks = subtasks.length;
+  const completedSubtasks = subtasks.filter(st => st.completed).length;
+
   // Get project color - use first project's color if multiple
   const getProjectColor = () => {
     if (!tags.length || !projectColorMap) return null;
@@ -48,6 +60,12 @@ function TaskCard({ task, onUpdateTask, onDeleteTask, onDragStart, onDragEnd, is
   // Overdue takes precedence, then project color
   const borderColor = isOverdue() ? '#dc3545' : (projectColor || undefined);
 
+  const handleSelect = (e) => {
+    if (onSelectTask) {
+      onSelectTask(task);
+    }
+  };
+
   return (
     <div
       className={`task-card ${isOverdue() ? 'overdue' : ''} ${isDragging ? 'dragging' : ''}`}
@@ -55,6 +73,7 @@ function TaskCard({ task, onUpdateTask, onDeleteTask, onDragStart, onDragEnd, is
         borderLeft: borderColor ? `4px solid ${borderColor}` : undefined
       }}
       draggable
+      onClick={handleSelect}
       onDragStart={(e) => {
         // Ensure task.id is valid (can be number or UUID string)
         if (!task || task.id === undefined || task.id === null) {
@@ -91,19 +110,60 @@ function TaskCard({ task, onUpdateTask, onDeleteTask, onDragStart, onDragEnd, is
       )}
       <div className="task-card-header">
         <div className="task-title">{task.title}</div>
-        <button
-          className="delete-btn"
-          onClick={(e) => {
-            e.stopPropagation();
-            onDeleteTask(task.id);
-          }}
-          title="Delete task"
-        >
-          ×
-        </button>
+        <div className="task-card-actions">
+          <button
+            className="task-edit-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleSelect();
+            }}
+            title="Open details"
+          >
+            <span>Open</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </button>
+          <button
+            className="delete-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDeleteTask(task.id);
+            }}
+            title="Delete task"
+          >
+            ×
+          </button>
+        </div>
       </div>
       {task.description && (
         <div className="task-description">{task.description}</div>
+      )}
+      {totalSubtasks > 0 && (
+        <div className="task-subtasks">
+          {subtasks.slice(0, 3).map((subtask, index) => {
+            const text = subtask.text || subtask.title || '';
+            if (!text) return null;
+            return (
+              <label
+                key={subtask.id || index}
+                className={`task-subtask${subtask.completed ? ' completed' : ''}`}
+                title={text}
+              >
+                <input type="checkbox" checked={Boolean(subtask.completed)} readOnly />
+                <span>{text}</span>
+              </label>
+            );
+          })}
+          {totalSubtasks > 3 && (
+            <div className="task-subtasks-more">
+              +{totalSubtasks - 3} more
+            </div>
+          )}
+          <div className="task-subtasks-summary">
+            {completedSubtasks}/{totalSubtasks} done
+          </div>
+        </div>
       )}
       {tags.length > 0 && (
         <div className="task-project-section">

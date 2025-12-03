@@ -2,6 +2,56 @@ const express = require('express');
 const router = express.Router();
 const { VALID_STATUSES, VALID_PRIORITIES } = require('../constants');
 
+// Normalize subtasks from request body into a clean array of
+// { id, text, completed } objects and drop empty entries.
+const normalizeSubtasksInput = (subtasks) => {
+  if (!Array.isArray(subtasks)) return [];
+  return subtasks
+    .map((subtask, index) => {
+      const text = typeof subtask?.text === 'string'
+        ? subtask.text.trim()
+        : typeof subtask?.title === 'string'
+        ? subtask.title.trim()
+        : '';
+
+      if (!text) return null;
+
+      const id =
+        typeof subtask?.id === 'string' && subtask.id.trim()
+          ? subtask.id.trim()
+          : `${Date.now()}-${index}`;
+
+      return {
+        id,
+        text,
+        completed: Boolean(subtask?.completed),
+      };
+    })
+    .filter(Boolean);
+};
+
+// Ensure we always return an array for subtasks in API responses.
+const formatTaskRow = (row) => {
+  if (!row) return row;
+  const raw = row.subtasks;
+  let subtasks = [];
+  if (Array.isArray(raw)) {
+    subtasks = raw;
+  } else if (raw) {
+    try {
+      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      if (Array.isArray(parsed)) subtasks = parsed;
+    } catch (e) {
+      subtasks = [];
+    }
+  }
+
+  return {
+    ...row,
+    subtasks,
+  };
+};
+
 // Validation middleware
 const validateTask = (req, res, next) => {
   const { status, priority } = req.body;
@@ -26,7 +76,8 @@ router.get('/', async (req, res) => {
   try {
     const pool = req.app.locals.pool;
     const result = await pool.query('SELECT * FROM tasks ORDER BY created_at DESC');
-    res.json(result.rows);
+    const tasks = result.rows.map(formatTaskRow);
+    res.json(tasks);
   } catch (error) {
     console.error('Error fetching tasks:', error);
     console.error('Error details:', {
@@ -67,7 +118,7 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Task not found' });
     }
     
-    res.json(result.rows[0]);
+    res.json(formatTaskRow(result.rows[0]));
   } catch (error) {
     console.error('Error fetching task:', error);
     res.status(500).json({ error: 'Failed to fetch task' });
@@ -78,7 +129,7 @@ router.get('/:id', async (req, res) => {
 router.post('/', validateTask, async (req, res) => {
   try {
     const pool = req.app.locals.pool;
-    const { title, description, priority, status, assigned_to, due_date, tags } = req.body;
+    const { title, description, priority, status, assigned_to, due_date, tags, subtasks } = req.body;
     
     if (!title || !priority || !status) {
       return res.status(400).json({ error: 'Title, priority, and status are required' });
@@ -99,15 +150,25 @@ router.post('/', validateTask, async (req, res) => {
     
     // Convert tags array to comma-separated string if it's an array
     const tagsString = Array.isArray(tags) ? tags.join(', ') : (tags || null);
+    const cleanSubtasks = normalizeSubtasksInput(subtasks);
     
     const result = await pool.query(
-      `INSERT INTO tasks (title, description, priority, status, assigned_to, due_date, tags)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO tasks (title, description, priority, status, assigned_to, due_date, tags, subtasks)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)
        RETURNING *`,
-      [title, description || null, priority, status, assigned_to || null, due_date || null, tagsString]
+      [
+        title,
+        description || null,
+        priority,
+        status,
+        assigned_to || null,
+        due_date || null,
+        tagsString,
+        JSON.stringify(cleanSubtasks)
+      ]
     );
     
-    res.status(201).json(result.rows[0]);
+    res.status(201).json(formatTaskRow(result.rows[0]));
   } catch (error) {
     console.error('Error creating task:', error);
     console.error('Error details:', {
@@ -150,7 +211,7 @@ router.put('/:id', validateTask, async (req, res) => {
   try {
     const pool = req.app.locals.pool;
     const { id } = req.params;
-    const { title, description, priority, status, assigned_to, due_date, tags } = req.body;
+    const { title, description, priority, status, assigned_to, due_date, tags, subtasks } = req.body;
     
     console.log('Update request - ID:', id, 'Type:', typeof id);
     console.log('Update request - Body:', req.body);
@@ -170,6 +231,8 @@ router.put('/:id', validateTask, async (req, res) => {
     
     // Convert tags array to comma-separated string if it's an array
     const tagsString = tags !== undefined ? (Array.isArray(tags) ? tags.join(', ') : tags) : null;
+    const cleanSubtasks = subtasks !== undefined ? normalizeSubtasksInput(subtasks) : undefined;
+    const subtasksJson = cleanSubtasks !== undefined ? JSON.stringify(cleanSubtasks) : null;
     
     // Use COALESCE approach (simpler and was working before)
     const result = await pool.query(
@@ -181,10 +244,11 @@ router.put('/:id', validateTask, async (req, res) => {
            assigned_to = COALESCE($5, assigned_to),
            due_date = COALESCE($6, due_date),
            tags = COALESCE($7, tags),
+           subtasks = COALESCE($8::jsonb, subtasks),
            updated_at = CURRENT_TIMESTAMP
-       WHERE id = $8
+       WHERE id = $9
        RETURNING *`,
-      [title, description, priority, status, assigned_to, due_date, tagsString, id]
+      [title, description, priority, status, assigned_to, due_date, tagsString, subtasksJson, id]
     );
     
     if (result.rows.length === 0) {
@@ -199,23 +263,24 @@ router.put('/:id', validateTask, async (req, res) => {
                assigned_to = COALESCE($5, assigned_to),
                due_date = COALESCE($6, due_date),
                tags = COALESCE($7, tags),
+               subtasks = COALESCE($8::jsonb, subtasks),
                updated_at = CURRENT_TIMESTAMP
-           WHERE id::text = $8
+           WHERE id::text = $9
            RETURNING *`,
-          [title, description, priority, status, assigned_to, due_date, tagsString, String(id)]
+          [title, description, priority, status, assigned_to, due_date, tagsString, subtasksJson, String(id)]
         );
         
         if (retryResult.rows.length === 0) {
           return res.status(404).json({ error: 'Task not found', taskId: id });
         }
         
-        return res.json(retryResult.rows[0]);
+        return res.json(formatTaskRow(retryResult.rows[0]));
       }
       
       return res.status(404).json({ error: 'Task not found', taskId: id });
     }
     
-    res.json(result.rows[0]);
+    res.json(formatTaskRow(result.rows[0]));
   } catch (error) {
     console.error('Error updating task:', error);
     console.error('Error details:', {

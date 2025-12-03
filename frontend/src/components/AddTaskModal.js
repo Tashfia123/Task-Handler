@@ -4,12 +4,12 @@ import './AddTaskModal.css';
 function AddTaskModal({ onClose, onSave }) {
   const [formData, setFormData] = useState({
     title: '',
-    description: '',
     priority: 'Medium',
     status: 'To Do',
     assigned_to: '',
     due_date: '',
-    tags: ''
+    tags: '',
+    subtasks: [],
   });
 
   const [errors, setErrors] = useState({});
@@ -44,10 +44,56 @@ function AddTaskModal({ onClose, onSave }) {
     return Object.keys(newErrors).length === 0;
   };
 
+  const handleSubtaskChange = (index, changes) => {
+    setFormData(prev => {
+      const next = [...prev.subtasks];
+      next[index] = { ...next[index], ...changes };
+      return { ...prev, subtasks: next };
+    });
+  };
+
+  const handleAddSubtask = () => {
+    setFormData(prev => ({
+      ...prev,
+      subtasks: [
+        ...prev.subtasks,
+        { id: Date.now(), text: '', completed: false },
+      ],
+    }));
+  };
+
+  const handleRemoveSubtask = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      subtasks: prev.subtasks.filter((_, i) => i !== index),
+    }));
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (validate()) {
-      onSave(formData);
+      const cleanedSubtasks = Array.isArray(formData.subtasks)
+        ? formData.subtasks
+            .map(st => ({
+              id: st.id || Date.now(),
+              text: (st.text || '').trim(),
+              completed: Boolean(st.completed),
+            }))
+            .filter(st => st.text.length > 0)
+        : [];
+
+      const payload = {
+        title: formData.title.trim(),
+        description: null, // description replaced by checklist
+        priority: formData.priority,
+        status: formData.status,
+        assigned_to: formData.assigned_to || null,
+        due_date: formData.due_date || null,
+        tags: formData.tags || null,
+        subtasks: cleanedSubtasks,
+      };
+
+      onSave(payload);
     }
   };
 
@@ -79,15 +125,48 @@ function AddTaskModal({ onClose, onSave }) {
           </div>
 
           <div className="form-group">
-            <label htmlFor="description">Description</label>
-            <textarea
-              id="description"
-              name="description"
-              placeholder="Enter task description"
-              value={formData.description}
-              onChange={handleChange}
-              rows="4"
-            />
+            <label>Subtasks</label>
+            <div className="subtasks-container">
+              {formData.subtasks.map((subtask, index) => (
+                <div key={subtask.id || index} className="subtask-pill">
+                  <div className="subtask-pill-border" />
+                  <label className="subtask-pill-main">
+                    <input
+                      type="checkbox"
+                      className="subtask-pill-checkbox"
+                      checked={Boolean(subtask.completed)}
+                      onChange={(e) =>
+                        handleSubtaskChange(index, { completed: e.target.checked })
+                      }
+                    />
+                    <input
+                      type="text"
+                      className="subtask-pill-input"
+                      placeholder="Subtask"
+                      value={subtask.text || ''}
+                      onChange={(e) =>
+                        handleSubtaskChange(index, { text: e.target.value })
+                      }
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="subtask-pill-remove"
+                    onClick={() => handleRemoveSubtask(index)}
+                    title="Remove subtask"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                className="add-subtask-btn"
+                onClick={handleAddSubtask}
+              >
+                + Add subtask
+              </button>
+            </div>
           </div>
 
           <div className="form-row">

@@ -165,26 +165,38 @@ function Dashboard() {
     return tasksToFilter.filter(task => task.status === status);
   };
 
-  const getCompletionRate = () => {
+  const completionRate = useMemo(() => {
     if (stats.total === 0) return 0;
     const completed = stats.byStatus['Completed'] || 0;
     return Math.round((completed / stats.total) * 100);
-  };
+  }, [stats]);
 
-  const getThisWeekProgress = () => {
+  const thisWeekProgress = useMemo(() => {
     const today = new Date();
     const weekStart = new Date(today);
-    weekStart.setDate(today.getDate() - today.getDay());
+    // Get Monday of current week (day 1 = Monday, day 0 = Sunday)
+    const dayOfWeek = today.getDay();
+    const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // If Sunday, go back 6 days; otherwise go to Monday
+    weekStart.setDate(today.getDate() + diff);
     weekStart.setHours(0, 0, 0, 0);
+    
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    weekEnd.setHours(23, 59, 59, 999);
 
+    // Filter tasks that are due this week
     const thisWeekTasks = tasks.filter(task => {
-      const taskDate = new Date(task.created_at);
-      return taskDate >= weekStart;
+      if (!task.due_date) {
+        return false; // Only count tasks with due dates
+      }
+      const dueDate = new Date(task.due_date);
+      dueDate.setHours(0, 0, 0, 0);
+      return dueDate >= weekStart && dueDate <= weekEnd;
     });
 
     const completedThisWeek = thisWeekTasks.filter(task => task.status === 'Completed').length;
     return { completed: completedThisWeek, total: thisWeekTasks.length };
-  };
+  }, [tasks]);
 
   if (loading) {
     return <div className="loading">Loading...</div>;
@@ -199,8 +211,8 @@ function Dashboard() {
             <div className="dashboard-container">
               <StatsCards stats={stats} />
               <ProgressOverview 
-                completionRate={getCompletionRate()} 
-                thisWeekProgress={getThisWeekProgress()}
+                completionRate={completionRate} 
+                thisWeekProgress={thisWeekProgress}
               />
               <ControlPanel
                 viewMode={viewMode}
@@ -218,6 +230,7 @@ function Dashboard() {
               {viewMode === 'board' ? (
                 <TaskBoard
                   tasks={getTasksByStatus}
+                  allTasks={tasks}
                   onUpdateTask={handleUpdateTask}
                   onDeleteTask={handleDeleteTask}
                   projectColorMap={projectColorMap}

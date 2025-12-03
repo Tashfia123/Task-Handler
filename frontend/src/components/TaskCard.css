@@ -62,6 +62,37 @@
   word-wrap: break-word;
 }
 
+.task-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.task-edit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #4f46e5;
+  cursor: pointer;
+  padding: 4px 10px;
+  transition: all 0.2s ease;
+}
+
+.task-edit-btn svg {
+  stroke: currentColor;
+}
+
+.task-edit-btn:hover {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+  color: #4338ca;
+}
+
 .delete-btn {
   background: none;
   border: none;
@@ -102,6 +133,43 @@
   gap: 8px;
   margin-bottom: 12px;
   flex-wrap: wrap;
+}
+
+.task-subtasks {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.task-subtask {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #4b5563;
+}
+
+.task-subtask input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+}
+
+.task-subtask.completed span {
+  text-decoration: line-through;
+  color: #9ca3af;
+}
+
+.task-subtasks-more {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.task-subtasks-summary {
+  font-size: 12px;
+  color: #374151;
+  font-weight: 500;
 }
 
 .task-project-label {
